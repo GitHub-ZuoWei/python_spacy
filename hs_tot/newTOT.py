@@ -343,4 +343,3 @@ def tot_result(start_time, end_time, person_id, receive_data):
 
     cursor.execute(sql)
     db.commit()
-    cursor.fetchall()

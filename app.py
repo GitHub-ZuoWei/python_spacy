@@ -1,9 +1,12 @@
 import datetime
 import json
 import os
+import re
 import shutil
 import time
+
 import spacy
+from ltp import LtpUtil
 from gevent import pywsgi
 from flask import Flask, request
 from hs_tot.newTOT import tot_result
@@ -12,9 +15,13 @@ from base_app import return_web
 from concurrent.futures import ThreadPoolExecutor
 from utils.sql_helper import MySqlHelper
 
+
 sql_helper = MySqlHelper()
 app = Flask(__name__)
 nlp = spacy.load('en_core_web_sm')  # 加载预训练模型
+
+text_rank = TextRankMain()
+ltp_util = LtpUtil()
 
 executor = ThreadPoolExecutor(max_workers=66)  # 创建线程池
 
@@ -95,7 +102,6 @@ def get_getparticiple():
             return return_web("未知异常错误", code=0)
         if language == "EN":
             doc = nlp(content.strip())
-            # 词性标注
             tokens = [{"content": [str(token) for token in doc]}]
             return return_web(tokens, 20000)
         if language == "CHS":
@@ -139,6 +145,7 @@ def get_getsentence():
 
     return return_web("请求方式错误", code=40000)
 
+
 # TOT
 @app.route('/dev/gettot', methods=['POST'])
 def get_gettot():
@@ -163,6 +170,54 @@ def get_gettot():
 # TOT异步调用
 def get_tot_result(start_time, end_time, person_id, receive_data):
     tot_result(start_time, end_time, person_id, receive_data)
+
+
+# 中文实体识别/词性标注
+@app.route('/dev/getchentity', methods=['POST'])
+def get_getchentity():
+    if request.method == 'POST':
+        try:
+            data = request.get_data()
+            json_data = json.loads(data.decode('utf-8'))
+            content = json_data.get("content")
+            language = json_data.get("language")
+        except Exception:
+            return return_web("未知异常错误", code=0)
+        if language == 'CHS':
+            # regex = re.compile("[\u4e00-\u9fa5]+")
+            word_list = []
+            # pseg_cut = pseg.cut(" ".join(regex.findall(content.strip())))
+            words = ltp_util.get_words(content.strip())
+            postags = ltp_util.get_postags(words)
+            for word, flag in zip(words, postags):
+                word_list.append({'entity': word, 'type': flag})
+            if word_list:
+                return return_web(word_list, 20000)
+            else:
+                return return_web('没有提取到关键句', 20000)
+    return return_web("请求方式错误", code=40000)
+
+
+# 提取关键字
+@app.route('/dev/gettextrank', methods=['POST'])
+def get_gettextrank():
+    if request.method == 'POST':
+        try:
+            data = request.get_data()
+            json_data = json.loads(data.decode('utf-8'))
+            size = json_data.get("size")
+            if not size:
+                size = 10
+            content = json_data.get("content")
+        except Exception:
+            return return_web("未知异常错误", code=0)
+
+        keywords_and_phrases = text_rank.get_keywords_and_phrases(content.strip(), size)
+        if keywords_and_phrases:
+            return return_web(keywords_and_phrases, 20000)
+        else:
+            return return_web('没有提取到关键字', 20000)
+    return return_web("请求方式错误", code=40000)
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ from textrank4zh import TextRank4Keyword, TextRank4Sentence
 
 
 class TextRankMain:
-    def __init__(self, word_num=20, sen_num=10):
+    def __init__(self, word_num=10, sen_num=10):
         # 加入日志
 
         # 初始化
@@ -18,7 +18,7 @@ class TextRankMain:
         self.tr4s = TextRank4Sentence()
 
     # 获取文本中的关键词和关键短语
-    def get_keywords_and_phrases(self, text, only_word=True):
+    def get_keywords_and_phrases(self, text, size, only_word=True):
         """
         获取文本中的关键词和关键短语
         :param text:
@@ -27,12 +27,14 @@ class TextRankMain:
         words_phrases = {}
         words = []
         phrases = []
+
         self.tr4w.analyze(text, lower=True, window=2)
         # 从关键词列表中获取前20个关键词
-        for item in self.tr4w.get_keywords(num=self.word_num, word_min_len=1):
+        for item in self.tr4w.get_keywords(num=size, word_min_len=1):
             # 打印每个关键词的内容及关键词的权重
             # print(item.word, item.weight)
-            words.append({'word': item.word, 'weight': item.weight})
+            words.append({'word': item.word})
+
         words_phrases['words'] = words
 
         if only_word:
