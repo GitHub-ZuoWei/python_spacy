@@ -1,12 +1,10 @@
-import datetime
-import json
 import os
+import json
 import re
 import shutil
 import time
 
 import spacy
-from ltp import LtpUtil
 from gevent import pywsgi
 from flask import Flask, request
 from hs_tot.newTOT import tot_result
@@ -14,14 +12,14 @@ from util_textrank import TextRankMain
 from base_app import return_web
 from concurrent.futures import ThreadPoolExecutor
 from utils.sql_helper import MySqlHelper
-
+from stanfordcorenlp import StanfordCoreNLP
 
 sql_helper = MySqlHelper()
 app = Flask(__name__)
 nlp = spacy.load('en_core_web_sm')  # 加载预训练模型
 
 text_rank = TextRankMain()
-ltp_util = LtpUtil()
+stanford_core_nlp = StanfordCoreNLP('/export/python/stanford-corenlp-full-2018-10-05', port=9016, lang='zh')
 
 executor = ThreadPoolExecutor(max_workers=66)  # 创建线程池
 
@@ -187,10 +185,10 @@ def get_getchentity():
             # regex = re.compile("[\u4e00-\u9fa5]+")
             word_list = []
             # pseg_cut = pseg.cut(" ".join(regex.findall(content.strip())))
-            words = ltp_util.get_words(content.strip())
-            postags = ltp_util.get_postags(words)
-            for word, flag in zip(words, postags):
-                word_list.append({'entity': word, 'type': flag})
+            ner = stanford_core_nlp.ner(content.strip())
+            tokenize = stanford_core_nlp.pos_tag(content.strip())
+            for ner_data, tokenize_data in zip(ner, tokenize):
+                word_list.append({'word': ner_data[0], 'entity': ner_data[1], 'type': tokenize_data[1]})
             if word_list:
                 return return_web(word_list, 20000)
             else:
